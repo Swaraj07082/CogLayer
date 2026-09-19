@@ -1,0 +1,45 @@
+:root {
+  --bg: #0f1419;
+  --surface: #1a222c;
+  --surface-2: #243040;
+  --border: #2e3d4f;
+  --text: #e8eef4;
+  --muted: #8b9aab;
+  --accent: #3d8bfd;
+  --accent-hover: #5a9fff;
+  --user-bg: #1e3a5f;
+  --assistant-bg: #243040;
+  --danger: #e85d5d;
+  --radius: 10px;
+  --font: 'Segoe UI', system-ui, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  font-family: var(--font);
+  line-height: 1.5;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  min-width: 320px;
+}
+
+button,
+textarea {
+  font: inherit;
+}

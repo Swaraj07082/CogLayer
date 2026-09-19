@@ -1,0 +1,21 @@
+{
+    "memories": [
+        {
+            "user_id": 1,
+            "memory": [
+                {
+                    "id": 1,
+                    "message": "I went to the store and bought some groceries."
+                },
+                {
+                    "id": 2,
+                    "message": "I went to the gym and worked out."
+                }
+            ]
+        },
+        {
+            "user_id": 2,
+            "memory": "I went to the gym and worked out."
+        }
+    ]
+}
