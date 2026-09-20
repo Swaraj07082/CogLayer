@@ -3,7 +3,7 @@ import os
 from pydantic import BaseModel
 from utils.conversations import get_user_conversation
 from utils.llm_call import llm_call
-from utils.qdrant_memory import create_client, ensure_collection, query_user_memories
+from utils.qdrant_memory import client, query_user_memories
 
 
 app = FastAPI()
@@ -11,11 +11,6 @@ app = FastAPI()
 class ChatRequest(BaseModel):
     user_id: str
     user_message: str
-
-
-client = create_client()
-ensure_collection(client)
-
 
 
 @app.post("/chat")
@@ -31,6 +26,8 @@ def chat(request : ChatRequest):
     conversations = get_user_conversation(request.user_id)
 
     response = llm_call(memories , conversations , request.user_message)
+
+    
     return response
 
     

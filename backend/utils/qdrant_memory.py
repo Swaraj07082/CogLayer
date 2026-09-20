@@ -48,6 +48,10 @@ def ensure_collection(client: QdrantClient) -> None:
     )
 
 
+client = create_client()
+ensure_collection(client)
+
+
 def query_user_memories(
     client: QdrantClient,
     user_id: str,

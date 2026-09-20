@@ -7,3 +7,5 @@ pydantic
 langchain 
 qdrant-client
 uvicorn
+celery
+uuid
