@@ -5,3 +5,5 @@ langchain-core
 langchain-community
 pydantic
 langchain 
+qdrant-client
+uvicorn

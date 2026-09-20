@@ -1,0 +1,109 @@
+{
+  "memory_store": {
+    "alex": [
+      {
+        "text": "Alex prefers dark roast coffee in the morning.",
+        "embedding_vector": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        "created_at": "2025-01-10T09:00:00Z",
+        "updated_at": "2025-01-10T09:00:00Z",
+        "metadata": {
+          "tags": ["coffee", "preference"],
+          "source": "demo",
+          "user_id": "alex"
+        }
+      },
+      {
+        "text": "Alex works as a software engineer and enjoys building developer tools.",
+        "embedding_vector": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        "created_at": "2025-01-11T10:30:00Z",
+        "updated_at": "2025-01-11T10:30:00Z",
+        "metadata": {
+          "tags": ["work", "technology"],
+          "source": "demo",
+          "user_id": "alex"
+        }
+      },
+      {
+        "text": "Alex is learning Spanish and practices for fifteen minutes each evening.",
+        "embedding_vector": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        "created_at": "2025-01-12T18:00:00Z",
+        "updated_at": "2025-01-12T18:00:00Z",
+        "metadata": {
+          "tags": ["learning", "language"],
+          "source": "demo",
+          "user_id": "alex"
+        }
+      },
+      {
+        "text": "Alex prefers planning tasks in the morning and keeping afternoons open for focused work.",
+        "embedding_vector": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        "created_at": "2025-01-13T08:15:00Z",
+        "updated_at": "2025-01-13T08:15:00Z",
+        "metadata": {
+          "tags": ["productivity", "preference"],
+          "source": "demo",
+          "user_id": "alex"
+        }
+      }
+    ],
+    "maya": [
+      {
+        "text": "Maya is a product designer who enjoys simplifying complex workflows.",
+        "embedding_vector": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        "created_at": "2025-01-14T11:00:00Z",
+        "updated_at": "2025-01-14T11:00:00Z",
+        "metadata": {
+          "tags": ["work", "design"],
+          "source": "demo",
+          "user_id": "maya"
+        }
+      },
+      {
+        "text": "Maya enjoys hiking on weekends and prefers trails near lakes.",
+        "embedding_vector": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        "created_at": "2025-01-15T16:45:00Z",
+        "updated_at": "2025-01-15T16:45:00Z",
+        "metadata": {
+          "tags": ["hobby", "outdoors"],
+          "source": "demo",
+          "user_id": "maya"
+        }
+      },
+      {
+        "text": "Maya prefers concise meeting notes with clear owners and due dates.",
+        "embedding_vector": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        "created_at": "2025-01-16T09:20:00Z",
+        "updated_at": "2025-01-16T09:20:00Z",
+        "metadata": {
+          "tags": ["work", "communication", "preference"],
+          "source": "demo",
+          "user_id": "maya"
+        }
+      }
+    ],
+    "jordan": [
+      {
+        "text": "Jordan is studying data science and is currently focused on machine learning fundamentals.",
+        "embedding_vector": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        "created_at": "2025-01-17T13:10:00Z",
+        "updated_at": "2025-01-17T13:10:00Z",
+        "metadata": {
+          "tags": ["education", "technology"],
+          "source": "demo",
+          "user_id": "jordan"
+        }
+      },
+      {
+        "text": "Jordan likes vegetarian food, especially spicy noodle dishes.",
+        "embedding_vector": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        "created_at": "2025-01-18T19:30:00Z",
+        "updated_at": "2025-01-18T19:30:00Z",
+        "metadata": {
+          "tags": ["food", "preference"],
+          "source": "demo",
+          "user_id": "jordan"
+        }
+      }
+    ]
+  }
+}

@@ -9,12 +9,12 @@ from pydantic import BaseModel
 load_dotenv()
 
 
-class Memories(BaseModel):
-    memories: list[str]
+class Response(BaseModel):
+    response: str
 
-parser = PydanticOutputParser(pydantic_object=Memories)
+parser = PydanticOutputParser(pydantic_object=Response)
 
-def llm_call(summary:Optional[str] = None , top_k_messages:Optional[list[str]] = None , user_message:str = None):
+def llm_call(memories:Optional[list[str]] = None , conversations:Optional[list[str]] = None , user_message:str = None):
     llm = ChatGroq(
         api_key = os.getenv("GROQ_API_KEY"),
         model = os.getenv("GROQ_MODEL"),
@@ -23,27 +23,23 @@ def llm_call(summary:Optional[str] = None , top_k_messages:Optional[list[str]] =
     
     prompt = PromptTemplate(
         template = """
-        You extract durable user memories from a conversation.
-        Return only facts that are useful for future conversations, such as
-        preferences, personal details, goals, projects, or important events.
-        Do not extract greetings, questions without answers, or temporary details.
+        These are previous memories of the user:
+        {memories}
 
-        Summary:
-        {summary}
+        These are previous conversations of the user:
+        {conversations}
 
-        Recent conversation:
-        {top_k_messages}
+        This is the user's current message:
+        {user_message}
 
-        Current conversation:
-        User: {user_message}
+        give an appropriate response to the user's message based on the previous memories and conversations and your own knowledge.
 
-        {format_instructions}
-        Return the candidate memories as a list of concise facts.
+        {format_instructions}.
         """,
-        input_variables = ["user_message" , "summary" , "top_k_messages"],
+        input_variables = ["user_message" , "memories" , "conversations"],
         partial_variables = {"format_instructions": parser.get_format_instructions()}
     )
 
     chain = prompt | llm | parser
 
-    return chain.invoke({"user_message": user_message , "summary": summary , "top_k_messages": top_k_messages})
+    return chain.invoke({"user_message": user_message , "memories": memories , "conversations": conversations})

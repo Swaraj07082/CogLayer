@@ -1,45 +1,41 @@
 from fastapi import FastAPI
-import json
-from pathlib import Path
+import os
 from pydantic import BaseModel
-from utils.summary import generate_summary
-from utils.top_k_messages import get_top_k_messages
+from utils.conversations import get_user_conversation
 from utils.llm_call import llm_call
-from utils.memory_update import update_memories
+from utils.qdrant_memory import create_client, ensure_collection, query_user_memories
+
 
 app = FastAPI()
 
 class ChatRequest(BaseModel):
-    user_id: int
+    user_id: str
     user_message: str
+
+
+client = create_client()
+ensure_collection(client)
+
+
 
 @app.post("/chat")
 def chat(request : ChatRequest):
-    conversations_path = Path(__file__).resolve().parent.parent / "conversations.json"
-    with open(conversations_path, "r") as f:
-        conversations = json.load(f)
-    
-    conversation_messages = []
 
-    for conversation in conversations["conversations"]:
-        if conversation["user_id"] == request.user_id:
-            conversation_messages = conversation["conversation_messages"]
-            break
+    memories = query_user_memories(
+        client=client,
+        user_id=request.user_id,
+        user_message=request.user_message,
+        limit=int(os.getenv("TOP_K", "10")),
+    )
 
-    if conversation_messages:
-        summary = generate_summary(conversation_messages)
-        top_k_messages = get_top_k_messages(conversation_messages)
+    conversations = get_user_conversation(request.user_id)
 
-        response = llm_call(summary , top_k_messages , request.user_message)
-
-        
-        update_memories(request.user_id, response.memories)
-        return {"response": response}
-    else:
-        response = llm_call(user_message=request.user_message)
-        update_memories(request.user_id, response.memories)
-        return {"response": response}
+    response = llm_call(memories , conversations , request.user_message)
+    return response
 
     
-
     
+
+
+
+
