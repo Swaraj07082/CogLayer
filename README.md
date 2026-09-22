@@ -1,79 +1,124 @@
 # Mem0-Style Memory Architecture
 
-A full-stack conversational memory prototype inspired by Mem0-style workflows. The system combines a FastAPI chat API, Groq-powered responses, Qdrant semantic memory, UUID-scoped users, and a React/Vite frontend.
+A full-stack prototype of a **Mem0-style** conversational memory system: hybrid **embeddings (cheap recall) + LLM (judgment)**.
 
-The architecture separates memory retrieval from memory extraction:
+It separates two paths:
 
-- **Read path:** retrieve memories relevant to the current query, load the user's conversation history, and generate a response.
-- **Write path:** persist the conversation pair, extract durable facts, search for similar memories, and apply add, update, delete, or no-op decisions.
+| Path | When | What it does |
+|------|------|----------------|
+| **Read (sync)** | Every `/chat` request | Retrieve top-k memories → build prompt → LLM reply → return to user |
+| **Write (async)** | After the reply (Celery) | Save message pair → EXTRACT facts → similar search → DECIDE ADD/UPDATE/DELETE/NOOP → update JSON + Qdrant |
+
+Summary **S** is rebuilt on each write-path EXTRACT from conversation history (no separate periodic summarizer — that is only a scale optimization).
+
+---
 
 ## Architecture
 
 ```mermaid
 flowchart TD
-    U[User query] --> API[FastAPI /chat]
-    API --> Q[Qdrant semantic search]
-    Q --> F[Filter by user UUID]
-    API --> C[Conversation store]
-    F --> P[Prompt with memories and history]
-    C --> P
-    P --> L[Groq LLM]
-    L --> R[Response]
-    R --> U
+  U[User query] --> API[FastAPI /chat]
+  API --> Q[Embed query + Qdrant top-k]
+  API --> C[Conversation store]
+  Q --> P[Build prompt]
+  C --> P
+  P --> L[LLM reply]
+  L --> R[Reply to user]
+  R -. Fire background job .-> W[Celery process_message_pair]
 
-    R -. async write path .-> W[Celery worker]
-    W --> S[Save conversation pair]
-    W --> E[Extract durable memories]
-    E --> Q2[Search similar user memories]
-    Q2 --> D[ADD / UPDATE / DELETE / NOOP]
-    D --> M[Qdrant memory store]
+  W --> Save[Save message pair]
+  Save --> Ext[LLM EXTRACT candidates]
+  Ext --> Sim[Per fact: embed + top-s similar]
+  Sim --> Dec[LLM DECIDE tool call]
+  Dec --> Ops{ADD / UPDATE / DELETE / NOOP}
+  Ops --> MS[memory_store.json]
+  Ops --> QD[Qdrant upsert or delete]
 ```
 
-Each Qdrant memory contains a `user_id` payload. Queries are filtered by that value, so asking as Alex cannot retrieve Maya or Jordan's memories. Friendly keys such as `alex` resolve to stable UUIDs in `data/user_ids.json`.
+### Why embeddings + LLM?
 
-## Repository Layout
+- **Similarity** narrows the store to top-s candidates (cheap recall).
+- **LLM DECIDE** judges duplicate vs refine vs contradict vs already known (judgment).
+- LLM-only fails at scale (cannot put the whole store in the prompt).
+- Similarity-only fails on near-opposite facts (e.g. “likes X” vs “hates X”).
+
+Every Qdrant search is scoped by `user_id`. Friendly keys (`alex`, `maya`, `jordan`) map to stable UUIDs in [`data/user_ids.json`](data/user_ids.json).
+
+---
+
+## Data model
+
+### Memory store (long-term)
+
+[`data/memory_store.json`](data/memory_store.json) holds fact records grouped by user key. Each record:
+
+| Field | Role |
+|-------|------|
+| `id` | UUID (same as Qdrant point id) |
+| `text` | Atomic fact |
+| `embedding_vector` | 384-dim MiniLM vector |
+| `created_at` / `updated_at` | Timestamps |
+| `metadata` | tags, source, user_id |
+
+Qdrant mirrors these points for vector search. **ADD / UPDATE upsert; DELETE removes** the point so the read path stays current without re-seeding.
+
+### Conversation store (short-term)
+
+[`conversations_store.json`](conversations_store.json) stores raw user/assistant turns per UUID. The write path uses:
+
+- **Summary S** — generated with Groq from that user’s history during EXTRACT
+- **Last m messages** — typically `m ≈ 10` via `get_top_k_messages`
+
+---
+
+## Repository layout
 
 ```text
 backend/
-  server.py                    FastAPI application and /chat route
-  populate_qdrant.py           Seed Qdrant from data/memory_store.json
-  requirements.txt             Python dependencies
+  server.py                 FastAPI /chat (read path + .delay write)
+  populate_qdrant.py        Seed/recreate Qdrant from memory_store.json
+  requirements.txt
+  test_memory_ops.py        Smoke tests for apply ops + Qdrant sync
   utils/
-    qdrant_memory.py           Shared Qdrant client and scoped retrieval
-    conversations.py           UUID-aware conversation loading
-    llm_call.py                Groq response generation
-    workers.py                 Conversation and memory extraction workers
-    summary.py                 Conversation summarization
-    top_k_messages.py          Recent-message selection
+    qdrant_memory.py        Client, collection ensure, query_user_memories
+    conversations.py        Load conversation history for the prompt
+    llm_call.py             Read-path Groq reply
+    workers.py              Celery app + full write path
+    summary.py              Conversation summary for EXTRACT
+    top_k_messages.py       Recent messages for EXTRACT
 
 data/
-  memory_store.json             Seed memory facts grouped by user
-  user_ids.json                 Stable friendly-key to UUID mapping
+  memory_store.json         Facts + embeddings by user
+  user_ids.json             friendly key → UUID
 
-conversations_store.json        UUID-scoped conversation history
-frontend/                       React/Vite chat interface
+conversations_store.json    Raw turns by user UUID
+frontend/                   React/Vite chat UI
 ```
+
+---
 
 ## Requirements
 
 - Python 3.10+
-- Node.js and npm
-- A Qdrant Cloud collection or self-hosted Qdrant instance
-- A Groq API key
-- RabbitMQ for the Celery worker path
+- Node.js + npm (frontend)
+- Qdrant Cloud (or self-hosted) with API access
+- Groq API key
+- **RabbitMQ** (Celery broker: `pyamqp://guest@localhost//`)
 
-Create a root `.env` file:
+Create a root `.env` (never commit this file):
 
 ```env
 QDRANT_ENDPOINT=https://your-qdrant-endpoint
 QDRANT_API_KEY=your-qdrant-api-key
 QDRANT_COLLECTION=memories
 GROQ_API_KEY=your-groq-api-key
-GROQ_MODEL=your-groq-model
+GROQ_MODEL=llama-3.3-70b-versatile
 TOP_K=10
 ```
 
-## Backend Setup
+---
+
+## Backend setup
 
 ```powershell
 cd backend
@@ -82,18 +127,34 @@ python -m venv venv
 pip install -r requirements.txt
 ```
 
-Populate Qdrant with the sample users and memories:
+From the **repository root**, seed Qdrant (recreates the collection and uploads points from `memory_store.json`):
 
 ```powershell
-python populate_qdrant.py
+$env:PYTHONPATH = (Get-Location)
+.\backend\venv\Scripts\python.exe -m backend.populate_qdrant
 ```
 
-Start the API from the repository root:
+### 1) API (read path)
 
 ```powershell
 $env:PYTHONPATH = (Join-Path (Get-Location) 'backend')
 .\backend\venv\Scripts\python.exe -m uvicorn server:app --host 127.0.0.1 --port 8000
 ```
+
+### 2) Celery worker (write path)
+
+Start RabbitMQ locally, then:
+
+```powershell
+$env:PYTHONPATH = (Get-Location)
+.\backend\venv\Scripts\celery.exe -A backend.utils.workers.app_celery worker --loglevel=info --pool=solo
+```
+
+`--pool=solo` is recommended on Windows.
+
+Without a worker, `/chat` still returns a reply, but `process_message_pair.delay(...)` only enqueues work — EXTRACT/DECIDE/apply will not run.
+
+---
 
 ## Chat API
 
@@ -106,7 +167,7 @@ $env:PYTHONPATH = (Join-Path (Get-Location) 'backend')
 }
 ```
 
-The `user_id` can be a friendly key such as `alex`, `maya`, or `jordan`, or the corresponding UUID. The response is generated using only that user's filtered Qdrant memories and conversation history.
+`user_id` may be `alex` / `maya` / `jordan` or the UUID from `user_ids.json`.
 
 Example response:
 
@@ -116,6 +177,38 @@ Example response:
 }
 ```
 
+After responding, the API enqueues:
+
+```text
+process_message_pair.delay(user_id, user_message, assistant_reply)
+```
+
+---
+
+## Write path (Celery task)
+
+Task: `workers.process_message_pair` in [`backend/utils/workers.py`](backend/utils/workers.py)
+
+1. **Save** user + assistant message pair → conversation store  
+2. **EXTRACT** (LLM #1) → candidate facts (summary S + last m turns + new pair)  
+3. **For each fact** → similarity search → top-s matches in Qdrant  
+4. **DECIDE** (LLM #2) → tool call: `ADD` | `UPDATE` | `DELETE` | `NOOP`  
+5. **Apply** → update `memory_store.json` and sync Qdrant (re-embed on ADD/UPDATE)
+
+Call synchronously (no broker) for debugging:
+
+```powershell
+.\backend\venv\Scripts\python.exe -m backend.utils.workers
+```
+
+Or run smoke tests:
+
+```powershell
+.\backend\venv\Scripts\python.exe -m backend.test_memory_ops
+```
+
+---
+
 ## Frontend
 
 ```powershell
@@ -124,19 +217,24 @@ npm install
 npm run dev
 ```
 
-The Vite development server runs at `http://localhost:5173`. Configure `VITE_API_BASE_URL` when the backend is not running at `http://localhost:8000`.
+Open `http://localhost:5173`. Set `VITE_API_BASE_URL` if the API is not at `http://localhost:8000`.
 
-## Worker Path
+---
 
-`backend/utils/workers.py` contains the write-side building blocks for saving message pairs, extracting durable memories with Groq, and finding similar memories through the shared Qdrant client. It expects RabbitMQ at the default Celery broker URL:
+## Learning this codebase (suggested order)
 
-```text
-pyamqp://guest@localhost//
-```
+1. [`backend/server.py`](backend/server.py) — read path + `.delay`  
+2. [`backend/utils/qdrant_memory.py`](backend/utils/qdrant_memory.py) — scoped retrieval  
+3. [`backend/utils/llm_call.py`](backend/utils/llm_call.py) — reply prompt  
+4. [`backend/utils/workers.py`](backend/utils/workers.py) — EXTRACT → similar → DECIDE → apply + Qdrant sync  
+5. [`backend/populate_qdrant.py`](backend/populate_qdrant.py) — initial seed / recreate collection  
+
+---
 
 ## Notes
 
-- `data/user_ids.json` keeps user UUIDs stable across repeated Qdrant seeding runs.
-- Qdrant point IDs are deterministic for a user and memory text, so reseeding upserts instead of duplicating the same facts.
-- The shared Qdrant client is global within each Python process. Separate API and Celery processes necessarily have one client each.
-- Conversation data is currently stored in `conversations_store.json` for this prototype.
+- Point ids are the memory UUIDs from `memory_store.json` (also stored in payload `id`).
+- `populate_qdrant.py` **recreates** the collection before upload so old ids cannot linger.
+- Runtime ADD/UPDATE/DELETE do **not** require re-populate; they upsert/delete in Qdrant directly.
+- Conversation data is file-based for the prototype (`conversations_store.json`).
+- A periodic “async summarizer” is **not** implemented; summary is computed on each write-path EXTRACT.

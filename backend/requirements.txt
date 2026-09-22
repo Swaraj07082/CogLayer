@@ -9,3 +9,4 @@ qdrant-client
 uvicorn
 celery
 uuid
+fastembed

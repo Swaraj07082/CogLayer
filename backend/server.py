@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from utils.conversations import get_user_conversation
 from utils.llm_call import llm_call
 from utils.qdrant_memory import client, query_user_memories
+from utils.workers import process_message_pair
 
 
 app = FastAPI()
@@ -27,12 +28,11 @@ def chat(request : ChatRequest):
 
     response = llm_call(memories , conversations , request.user_message)
 
-    
+    # WRITE PATH (async): extract → similar search → decide → apply
+    process_message_pair.delay(
+        request.user_id,
+        request.user_message,
+        response.response,
+    )
+
     return response
-
-    
-    
-
-
-
-
