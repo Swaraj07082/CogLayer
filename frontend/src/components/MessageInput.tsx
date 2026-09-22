@@ -30,7 +30,7 @@ export function MessageInput({ disabled, sending, onSend }: MessageInputProps) {
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder={disabled ? 'Select a conversation first' : 'Type a message…'}
+        placeholder={disabled ? 'Unavailable' : 'Type a message…'}
         disabled={disabled || sending}
         rows={2}
       />

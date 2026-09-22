@@ -136,14 +136,22 @@ $env:PYTHONPATH = (Get-Location)
 
 ### 1) API (read path)
 
+From the repository root (so both `backend.*` and `utils.*` imports resolve):
+
 ```powershell
-$env:PYTHONPATH = (Join-Path (Get-Location) 'backend')
-.\backend\venv\Scripts\python.exe -m uvicorn server:app --host 127.0.0.1 --port 8000
+$env:PYTHONPATH = "$(Get-Location);$(Join-Path (Get-Location) 'backend')"
+.\backend\venv\Scripts\python.exe -m uvicorn server:app --host 127.0.0.1 --port 8000 --app-dir backend
 ```
 
 ### 2) Celery worker (write path)
 
-Start RabbitMQ locally, then:
+Start RabbitMQ (Docker example):
+
+```powershell
+docker run -d --name rabbitmq-mem0 -p 5672:5672 -p 15672:15672 rabbitmq:3-management
+```
+
+Then:
 
 ```powershell
 $env:PYTHONPATH = (Get-Location)

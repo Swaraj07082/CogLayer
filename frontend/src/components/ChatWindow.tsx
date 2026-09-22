@@ -1,34 +1,22 @@
 import type { Message } from '../types'
 
 type ChatWindowProps = {
-  conversationName: string | null
+  userLabel: string
   messages: Message[]
-  loading: boolean
 }
 
-export function ChatWindow({
-  conversationName,
-  messages,
-  loading,
-}: ChatWindowProps) {
-  if (!conversationName) {
-    return (
-      <div className="chat-window empty">
-        <p>Select a conversation or start a new one.</p>
-      </div>
-    )
-  }
-
+export function ChatWindow({ userLabel, messages }: ChatWindowProps) {
   return (
     <div className="chat-window">
       <header className="chat-header">
-        <h2>{conversationName}</h2>
+        <h2>Chat as {userLabel}</h2>
       </header>
       <div className="message-list">
-        {loading ? (
-          <p className="empty-hint">Loading messages…</p>
-        ) : messages.length === 0 ? (
-          <p className="empty-hint">Send a message to start chatting.</p>
+        {messages.length === 0 ? (
+          <p className="empty-hint">
+            Ask about preferences, work, or learning — answers use that user&apos;s
+            Qdrant memories. Each send also fires the async write path.
+          </p>
         ) : (
           messages.map((m) => (
             <div key={m.id} className="message-pair">
