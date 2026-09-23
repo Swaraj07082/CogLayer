@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CogLayer · Architecture lab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Patrick+Hand&display=swap" rel="stylesheet" />
+  <style>
+    @font-face {
+      font-family: Virgil;
+      src: url("https://excalidraw.com/Virgil.woff2") format("woff2");
+      font-display: swap;
+    }
+    :root {
+      --ink: #1e1e1e;
+      --paper: #fcfbf7;
+      --read: #1971c2;
+      --write: #e67700;
+      --accent: var(--read);
+      --fill-blue: #a5d8ff;
+      --fill-green: #b2f2bb;
+      --fill-yellow: #ffec99;
+      --fill-orange: #ffd8a8;
+      --sketch: Virgil, Caveat, "Patrick Hand", cursive;
+    }
+    html, body { height: 100%; margin: 0; overflow: hidden; }
+    body {
+      font-family: var(--sketch);
+      color: var(--ink);
+      background: var(--paper) radial-gradient(circle at 1px 1px, rgb(0 0 0 / 6%) 1px, transparent 0) 0 0 / 22px 22px;
+    }
+    .page {
+      box-sizing: border-box;
+      height: 100dvh;
+      padding: 0.7rem 0.9rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+    }
+    .top { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex: 0 0 auto; }
+    .kicker { margin: 0; color: var(--read); font-weight: 600; }
+    h1 { margin: 0; font-size: clamp(1.35rem, 2.2vw, 1.85rem); }
+    .actions { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
+    .sketchy { border: 2px solid var(--ink); border-radius: 255px 14px 225px 14px / 14px 225px 14px 255px; background: #fff; box-shadow: 2px 2px 0 rgb(0 0 0 / 12%); }
+    button { font-family: inherit; cursor: pointer; }
+    .toggle { display: inline-flex; padding: 0.18rem; gap: 0.1rem; }
+    .toggle button { border: none; background: transparent; padding: 0.25rem 0.7rem; border-radius: 255px 10px 225px 10px / 10px 225px 10px 255px; font-size: 1.05rem; font-weight: 600; color: #5c5c5c; }
+    .toggle button.on { background: var(--fill-blue); color: var(--ink); }
+    body.write .toggle button.on { background: var(--fill-orange); }
+    .ctrl { padding: 0.25rem 0.65rem; font-size: 1rem; }
+    .ctrl.primary { background: var(--fill-yellow); }
+    .ctrl:disabled { opacity: 0.4; cursor: not-allowed; }
+    .stage { flex: 1; min-height: 0; display: grid; grid-template-columns: 1.55fr 0.7fr; gap: 0.65rem; }
+    .canvas { position: relative; min-height: 0; border: 2.5px solid var(--ink); background: #fff; overflow: hidden; box-shadow: 3px 4px 0 rgb(0 0 0 / 10%); }
+    .grid { position: absolute; inset: 0; background-image: radial-gradient(circle at 1px 1px, rgb(0 0 0 / 8%) 1px, transparent 0); background-size: 18px 18px; opacity: 0.55; }
+    svg.edges { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .edge { stroke: #1e1e1e; stroke-width: 0.5; fill: none; opacity: 0.45; }
+    .edge.on { stroke: var(--accent); stroke-width: 0.85; opacity: 1; }
+    .arrow { fill: #1e1e1e; opacity: 0.45; }
+    .arrow.on { fill: var(--accent); opacity: 1; }
+    .node { position: absolute; transform: translate(-50%, -50%) rotate(var(--tilt, 0deg)); min-width: 6.4rem; max-width: 8.5rem; padding: 0.35rem 0.5rem; border: 2.5px solid var(--ink); border-radius: 255px 14px 225px 14px / 14px 225px 14px 255px; box-shadow: 2px 2px 0 rgb(0 0 0 / 14%); }
+    .node .label { display: block; font-weight: 700; font-size: 1.05rem; }
+    .node .sub { display: block; color: #5c5c5c; font-size: 0.88rem; }
+    .actor { background: var(--fill-yellow); }
+    .compute { background: var(--fill-blue); }
+    .store { background: var(--fill-green); }
+    .queue { background: var(--fill-orange); }
+    .node.active { outline: 2px dashed var(--accent); outline-offset: 2px; z-index: 2; transform: translate(-50%, -50%) rotate(var(--tilt, 0deg)) scale(1.05); }
+    .packet { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border: 2px solid var(--ink); border-radius: 40% 60% 55% 45% / 45% 40% 60% 55%; background: var(--accent); z-index: 3; animation: fly 1.15s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+    @keyframes fly { to { left: var(--x2); top: var(--y2); opacity: 0.4; } }
+    .caption { min-height: 0; border: 2.5px solid var(--ink); background: #fff; padding: 0.7rem 0.8rem; display: flex; flex-direction: column; gap: 0.35rem; overflow: hidden; box-shadow: 3px 4px 0 rgb(0 0 0 / 10%); }
+    .idx { margin: 0; color: var(--accent); font-weight: 700; }
+    .caption h2 { margin: 0; font-size: 1.35rem; }
+    .cap, .why { margin: 0; line-height: 1.25; font-size: 1.05rem; }
+    .why { padding: 0.45rem 0.55rem; background: var(--fill-yellow); border: 2px solid var(--ink); border-radius: 255px 14px 225px 14px / 14px 225px 14px 255px; }
+    .dots { display: flex; gap: 0.35rem; margin-top: auto; padding-top: 0.35rem; }
+    .dot { width: 0.72rem; height: 0.72rem; border: 2px solid var(--ink); border-radius: 40% 60% 50% 50% / 50% 40% 60% 50%; background: #fff; padding: 0; }
+    .dot.on { background: var(--accent); }
+    .hint { margin: 0; color: #868e96; font-size: 0.85rem; }
+    body.write { --accent: var(--write); }
+    @media (max-width: 900px) {
+      .stage { grid-template-columns: 1fr; grid-template-rows: 1.15fr 0.85fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="top">
+      <div>
+        <p class="kicker">CogLayer</p>
+        <h1>Architecture lab</h1>
+      </div>
+      <div class="actions">
+        <div class="toggle sketchy" id="pathToggle">
+          <button type="button" data-path="read" class="on">Read</button>
+          <button type="button" data-path="write">Write</button>
+        </div>
+        <button type="button" class="ctrl sketchy" id="prev">Prev</button>
+        <button type="button" class="ctrl sketchy primary" id="play">Pause</button>
+        <button type="button" class="ctrl sketchy" id="next">Next</button>
+        <button type="button" class="ctrl sketchy" id="restart">Restart</button>
+      </div>
+    </header>
+    <div class="stage">
+      <div class="canvas sketchy" id="canvas">
+        <div class="grid"></div>
+        <svg class="edges" id="edges" viewBox="0 0 100 70" preserveAspectRatio="none"></svg>
+        <div id="nodes"></div>
+        <div id="packetSlot"></div>
+      </div>
+      <aside class="caption sketchy">
+        <p class="idx" id="idx"></p>
+        <h2 id="title"></h2>
+        <p class="cap" id="cap"></p>
+        <p class="why" id="why"></p>
+        <div class="dots" id="dots"></div>
+        <p class="hint">Space play/pause · ← → step · same lab as <code>/learn</code></p>
+      </aside>
+    </div>
+  </div>
+  <script>
+    const READ = [
+      { title: "User sends a query", caption: "A chat message hits FastAPI /chat — this is the synchronous read path.", why: "The reply must stay fast. Heavy memory maintenance waits for the write path.", activeNodes: ["user", "api"], activeEdges: ["user-api"], packet: { from: "user", to: "api" } },
+      { title: "Embed query + similarity search", caption: "The query is embedded and Qdrant returns top-k memories scoped by user_id.", why: "Embeddings give cheap recall across many facts without stuffing the whole store into the prompt.", activeNodes: ["api", "qdrant"], activeEdges: ["api-qdrant"], packet: { from: "api", to: "qdrant" } },
+      { title: "Load conversation context", caption: "Recent turns are loaded from the conversation store for short-term context.", why: "Memories are long-term facts; conversation turns are the immediate thread.", activeNodes: ["api", "conversation"], activeEdges: ["api-conversation"], packet: { from: "api", to: "conversation" } },
+      { title: "Build the prompt", caption: "System instructions + retrieved memories + history + the user query become one prompt.", why: "The model only sees what was retrieved — not the entire memory database.", activeNodes: ["api", "qdrant", "conversation", "llm"], activeEdges: ["api-llm"], packet: { from: "api", to: "llm" } },
+      { title: "LLM generates the reply", caption: "Groq produces an answer grounded in that user’s memories and chat history.", why: "Judgment for wording happens here; storage decisions wait for the write path.", activeNodes: ["llm"], activeEdges: [] },
+      { title: "Reply sent to the user", caption: "The HTTP response returns immediately so the UI stays snappy.", why: "Users should not wait on EXTRACT + DECIDE + store updates.", activeNodes: ["llm", "user", "api"], activeEdges: ["llm-user"], packet: { from: "llm", to: "user" } },
+      { title: "Fire the background job", caption: "process_message_pair.delay(...) enqueues the write path on RabbitMQ → Celery.", why: "This is the handoff: read path done, write path starts without blocking the reply.", activeNodes: ["api", "celery"], activeEdges: ["api-celery"], packet: { from: "api", to: "celery" } },
+    ];
+    const WRITE = [
+      { title: "New message pair arrives", caption: "Celery picks up user query + assistant reply as one write-path unit.", why: "Facts are extracted from the exchange, not from the query alone.", activeNodes: ["celery", "api"], activeEdges: ["api-celery"], packet: { from: "api", to: "celery" } },
+      { title: "Save to conversation store", caption: "The pair is appended to conversations_store.json for that user UUID.", why: "Later EXTRACT calls need history for summary S and last-m messages.", activeNodes: ["celery", "conversation"], activeEdges: ["celery-conversation"], packet: { from: "celery", to: "conversation" } },
+      { title: "Build extraction prompt P", caption: "Summary S of past messages + last ~10 turns + the new pair.", why: "Summary compresses old context; recent turns keep detail for new facts.", activeNodes: ["celery", "conversation", "llm"], activeEdges: ["celery-conversation", "celery-llm"], packet: { from: "conversation", to: "llm" } },
+      { title: "LLM call #1 — EXTRACT", caption: "The model emits candidate memory facts (atomic sentences).", why: "Not every sentence is a durable memory — EXTRACT filters for lasting facts.", activeNodes: ["llm", "celery"], activeEdges: ["celery-llm"] },
+      { title: "Similar search per candidate", caption: "Each fact is embedded and matched against that user’s top-s memories in Qdrant.", why: "Similarity = cheap recall of possible duplicates, updates, or contradictions.", activeNodes: ["celery", "qdrant"], activeEdges: ["celery-qdrant"], packet: { from: "celery", to: "qdrant" } },
+      { title: "LLM call #2 — DECIDE", caption: "Given a candidate + top-s matches, the model picks one tool: ADD, UPDATE, DELETE, or NOOP.", why: "“Likes X” vs “hates X” embed similarly — only an LLM can judge the relationship.", activeNodes: ["llm", "celery", "qdrant"], activeEdges: ["celery-llm"] },
+      { title: "Apply operations", caption: "ADD/UPDATE write (and re-embed) into memory_store.json + upsert Qdrant. DELETE removes both. NOOP skips.", why: "JSON is the durable record; Qdrant must stay in sync for the next read path.", activeNodes: ["celery", "memory", "qdrant"], activeEdges: ["celery-memory", "celery-qdrant"], packet: { from: "celery", to: "memory" } },
+      { title: "Ready for the next query", caption: "The next /chat read path will retrieve the updated memories automatically.", why: "That closes the loop: chat → learn → store → chat again.", activeNodes: ["memory", "qdrant", "user", "api"], activeEdges: ["user-api", "api-qdrant"] },
+    ];
+    const NODES = {
+      user: { label: "User", sub: "Chat UI", x: 8, y: 18, kind: "actor" },
+      api: { label: "FastAPI", sub: "/chat", x: 28, y: 18, kind: "compute" },
+      llm: { label: "LLM", sub: "Groq", x: 52, y: 8, kind: "compute" },
+      qdrant: { label: "Qdrant", sub: "Vector search", x: 52, y: 32, kind: "store" },
+      conversation: { label: "Conversation", sub: "Turns + summary S", x: 28, y: 48, kind: "store" },
+      celery: { label: "Celery", sub: "Write worker", x: 72, y: 48, kind: "queue" },
+      memory: { label: "Memory store", sub: "JSON facts", x: 88, y: 28, kind: "store" },
+    };
+    const EDGES = {
+      "user-api": { x1: 14, y1: 22, x2: 22, y2: 22 },
+      "api-qdrant": { x1: 36, y1: 24, x2: 46, y2: 32 },
+      "api-conversation": { x1: 32, y1: 28, x2: 32, y2: 42 },
+      "api-llm": { x1: 36, y1: 16, x2: 46, y2: 12 },
+      "llm-user": { x1: 46, y1: 10, x2: 14, y2: 16 },
+      "api-celery": { x1: 36, y1: 28, x2: 66, y2: 46 },
+      "celery-conversation": { x1: 66, y1: 52, x2: 40, y2: 52 },
+      "celery-llm": { x1: 72, y1: 42, x2: 58, y2: 18 },
+      "celery-qdrant": { x1: 72, y1: 42, x2: 58, y2: 36 },
+      "celery-memory": { x1: 80, y1: 46, x2: 86, y2: 36 },
+    };
+
+    function geo(x1, y1, x2, y2) {
+      const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy) || 1;
+      const ux = dx / len, uy = dy / len;
+      const tipX = x2 - ux * 1.8, tipY = y2 - uy * 1.8;
+      const baseX = tipX - ux * 2.2, baseY = tipY - uy * 2.2;
+      const px = -uy, py = ux, wing = 1.1;
+      return {
+        line: { x1, y1, x2: baseX, y2: baseY },
+        arrow: `${tipX},${tipY} ${baseX + px * wing},${baseY + py * wing} ${baseX - px * wing},${baseY - py * wing}`,
+      };
+    }
+
+    const nodesEl = document.getElementById("nodes");
+    const edgesEl = document.getElementById("edges");
+    const packetSlot = document.getElementById("packetSlot");
+    const dotsEl = document.getElementById("dots");
+    Object.entries(NODES).forEach(([id, n], i) => {
+      const d = document.createElement("div");
+      d.className = `node ${n.kind}`;
+      d.dataset.id = id;
+      d.style.left = n.x + "%";
+      d.style.top = n.y + "%";
+      d.style.setProperty("--tilt", ((i % 3) - 1) * 0.9 + "deg");
+      d.innerHTML = `<span class="label">${n.label}</span><span class="sub">${n.sub}</span>`;
+      nodesEl.appendChild(d);
+    });
+    Object.entries(EDGES).forEach(([id, e]) => {
+      const g = geo(e.x1, e.y1, e.x2, e.y2);
+      const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      group.dataset.id = id;
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("x1", g.line.x1); line.setAttribute("y1", g.line.y1);
+      line.setAttribute("x2", g.line.x2); line.setAttribute("y2", g.line.y2);
+      line.setAttribute("class", "edge");
+      const poly = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+      poly.setAttribute("points", g.arrow);
+      poly.setAttribute("class", "arrow");
+      group.appendChild(line); group.appendChild(poly);
+      edgesEl.appendChild(group);
+    });
+
+    let path = "read", index = 0, playing = true, timer = null, endTimer = null;
+    const steps = () => (path === "read" ? READ : WRITE);
+    const last = () => steps().length - 1;
+
+    function render() {
+      const s = steps()[index];
+      document.body.classList.toggle("write", path === "write");
+      document.getElementById("idx").textContent = `Step ${index + 1}/${steps().length} · ${path === "read" ? "Read" : "Write"}`;
+      document.getElementById("title").textContent = s.title;
+      document.getElementById("cap").textContent = s.caption;
+      document.getElementById("why").innerHTML = `<strong>Why:</strong> ${s.why}`;
+      document.getElementById("play").textContent = playing ? "Pause" : "Play";
+      document.getElementById("prev").disabled = index <= 0;
+      document.getElementById("next").disabled = index >= last();
+      document.querySelectorAll("#pathToggle button").forEach((b) => b.classList.toggle("on", b.dataset.path === path));
+      document.querySelectorAll(".node").forEach((n) => n.classList.toggle("active", s.activeNodes.includes(n.dataset.id)));
+      document.querySelectorAll("#edges g").forEach((g) => {
+        const on = s.activeEdges.includes(g.dataset.id);
+        g.querySelector(".edge").classList.toggle("on", on);
+        g.querySelector(".arrow").classList.toggle("on", on);
+      });
+      dotsEl.innerHTML = "";
+      steps().forEach((st, i) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "dot" + (i === index ? " on" : "");
+        b.title = st.title;
+        b.onclick = () => { playing = false; index = i; syncTimers(); render(); spawnPacket(); };
+        dotsEl.appendChild(b);
+      });
+    }
+
+    function spawnPacket() {
+      packetSlot.innerHTML = "";
+      const s = steps()[index];
+      if (!s.packet) return;
+      const from = NODES[s.packet.from], to = NODES[s.packet.to];
+      const p = document.createElement("div");
+      p.className = "packet";
+      p.style.left = from.x + "%";
+      p.style.top = from.y + "%";
+      p.style.setProperty("--x2", to.x + "%");
+      p.style.setProperty("--y2", to.y + "%");
+      packetSlot.appendChild(p);
+    }
+
+    function syncTimers() {
+      clearInterval(timer); clearTimeout(endTimer); timer = null; endTimer = null;
+      if (!playing) return;
+      timer = setInterval(() => {
+        if (index >= last()) return;
+        index += 1;
+        render();
+        spawnPacket();
+      }, 2800);
+      if (index >= last()) {
+        endTimer = setTimeout(() => { playing = false; render(); syncTimers(); }, 2800);
+      }
+    }
+
+    document.getElementById("prev").onclick = () => { playing = false; index = Math.max(0, index - 1); syncTimers(); render(); spawnPacket(); };
+    document.getElementById("next").onclick = () => { playing = false; index = Math.min(last(), index + 1); syncTimers(); render(); spawnPacket(); };
+    document.getElementById("play").onclick = () => {
+      if (playing) playing = false;
+      else { if (index >= last()) index = 0; playing = true; }
+      syncTimers(); render(); spawnPacket();
+    };
+    document.getElementById("restart").onclick = () => { index = 0; playing = true; syncTimers(); render(); spawnPacket(); };
+    document.querySelectorAll("#pathToggle button").forEach((b) => {
+      b.onclick = () => { path = b.dataset.path; index = 0; playing = true; syncTimers(); render(); spawnPacket(); };
+    });
+    window.addEventListener("keydown", (e) => {
+      if (e.key === " ") { e.preventDefault(); document.getElementById("play").click(); }
+      if (e.key === "ArrowRight") { e.preventDefault(); document.getElementById("next").click(); }
+      if (e.key === "ArrowLeft") { e.preventDefault(); document.getElementById("prev").click(); }
+    });
+
+    render();
+    spawnPacket();
+    syncTimers();
+  </script>
+</body>
+</html>

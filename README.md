@@ -1,6 +1,6 @@
-# Mem0-Style Memory Architecture
+# CogLayer
 
-A full-stack prototype of a **Mem0-style** conversational memory system: hybrid **embeddings (cheap recall) + LLM (judgment)**.
+A full-stack **Mem0-style** conversational memory lab: hybrid **embeddings (cheap recall) + LLM (judgment)**.
 
 It separates two paths:
 
@@ -13,26 +13,89 @@ Summary **S** is rebuilt on each write-path EXTRACT from conversation history (n
 
 ---
 
-## Architecture
+## Interactive architecture lab
+
+> GitHub READMEs cannot run the React player inline. Use one of the options below for the **same Excalidraw-style animated diagram** as the app (`/learn`).
+
+![CogLayer architecture lab](docs/architecture-lab.png)
+
+**Open the interactive lab (same controls: Read/Write, Play/Pause, Prev/Next):**
+
+1. **In the app (recommended):**  
+   ```powershell
+   cd frontend
+   npm install
+   npm run dev
+   ```  
+   Then open [http://localhost:5173/learn](http://localhost:5173/learn)  
+   (or click **Learn architecture →** in the chat sidebar)
+
+2. **Standalone HTML (no build):** open [`docs/architecture-lab.html`](docs/architecture-lab.html) in your browser  
+   (double-click the file, or with the Vite server: [http://localhost:5173/architecture-lab.html](http://localhost:5173/architecture-lab.html))
+
+Keyboard: **Space** = play/pause · **← →** = step
+
+---
+
+## Architecture (static overview)
 
 ```mermaid
-flowchart TD
-  U[User query] --> API[FastAPI /chat]
-  API --> Q[Embed query + Qdrant top-k]
-  API --> C[Conversation store]
-  Q --> P[Build prompt]
-  C --> P
-  P --> L[LLM reply]
-  L --> R[Reply to user]
-  R -. Fire background job .-> W[Celery process_message_pair]
+flowchart LR
+  subgraph readPath [Read path sync]
+    U[User] --> API[FastAPI /chat]
+    API --> Q[Qdrant top-k]
+    API --> C[Conversation store]
+    Q --> LLM[Groq LLM]
+    C --> LLM
+    LLM --> U
+  end
+  API -. delay .-> W[Celery worker]
+  subgraph writePath [Write path async]
+    W --> Save[Save message pair]
+    Save --> Ext[EXTRACT candidates]
+    Ext --> Sim[Similar search top-s]
+    Sim --> Dec[DECIDE tool call]
+    Dec --> Ops{ADD UPDATE DELETE NOOP}
+    Ops --> MS[memory_store.json]
+    Ops --> QD[Qdrant upsert or delete]
+  end
+```
 
-  W --> Save[Save message pair]
-  Save --> Ext[LLM EXTRACT candidates]
-  Ext --> Sim[Per fact: embed + top-s similar]
-  Sim --> Dec[LLM DECIDE tool call]
-  Dec --> Ops{ADD / UPDATE / DELETE / NOOP}
-  Ops --> MS[memory_store.json]
-  Ops --> QD[Qdrant upsert or delete]
+### Read path steps
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant API as FastAPI
+  participant Qdrant
+  participant Conv as Conversation
+  participant LLM as Groq
+  participant Celery
+  User->>API: query
+  API->>Qdrant: embed + top-k by user_id
+  API->>Conv: load recent turns
+  API->>LLM: prompt memories + history + query
+  LLM-->>User: reply
+  API--)Celery: process_message_pair.delay
+```
+
+### Write path steps
+
+```mermaid
+sequenceDiagram
+  participant Celery
+  participant Conv as Conversation
+  participant LLM as Groq
+  participant Qdrant
+  participant Store as memory_store.json
+  Celery->>Conv: save user + assistant pair
+  Celery->>LLM: EXTRACT candidates summary + last m
+  loop each candidate fact
+    Celery->>Qdrant: similar search top-s
+    Celery->>LLM: DECIDE ADD UPDATE DELETE NOOP
+  end
+  Celery->>Store: apply ops re-embed on ADD UPDATE
+  Celery->>Qdrant: upsert or delete
 ```
 
 ### Why embeddings + LLM?
@@ -92,7 +155,10 @@ data/
   user_ids.json             friendly key → UUID
 
 conversations_store.json    Raw turns by user UUID
-frontend/                   React/Vite chat UI
+docs/
+  architecture-lab.html     Standalone interactive diagram (same as /learn)
+  architecture-lab.png      Screenshot for README
+frontend/                   React/Vite chat UI + /learn lab
 ```
 
 ---
@@ -225,7 +291,11 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`. Set `VITE_API_BASE_URL` if the API is not at `http://localhost:8000`.
+Open `http://localhost:5173` for the chat demo.
+
+Open **`http://localhost:5173/learn`** for the animated architecture lab (Read path vs Write path walkthrough). Use **Learn architecture →** in the chat sidebar, or Space / ← → to control playback.
+
+Set `VITE_API_BASE_URL` if the API is not at `http://localhost:8000`.
 
 ---
 
