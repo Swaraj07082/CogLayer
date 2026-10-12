@@ -1,4 +1,6 @@
 .env
+.brag-skill-tmp/
+brag-output/
 __pycache__/
 *.pyc
 *.pyo
